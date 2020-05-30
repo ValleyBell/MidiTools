@@ -55,6 +55,10 @@ static void TrkSplit_Note(TrackSplit& trkSplt);
 // split by instrument
 static trkinf_iterator GetInstrumentTrack(std::list<TrackInfo>& trkLst, const MidiEvent& midiEvt);
 static void TrkSplit_Instrument(TrackSplit& trkSplt);
+// split by channel
+static void TrkSplit_Channel(TrackSplit& trkSplt);
+// split by volume
+static void TrkSplit_Volume(TrackSplit& trkSplt);
 // General
 static UINT8 CountDigits(UINT32 value);
 static void ModifyTrackNames(std::list<TrackInfo>& trkLst, UINT16 midiTrkID);
@@ -73,9 +77,10 @@ int main(int argc, char* argv[])
 	{
 		printf("Usage: %s method input.mid output.mid\n", argv[0]);
 		printf("Methods:\n");
+		printf("    chn  - split by channel\n");
 		printf("    note - split chords\n");
 		printf("    ins  - split by instrument/patch\n");
-		//printf("    vol  - split by volume\n");
+		printf("    vol  - split by volume\n");
 #ifdef _DEBUG
 		getchar();
 #endif
@@ -85,11 +90,13 @@ int main(int argc, char* argv[])
 	UINT8 retVal;
 	UINT8 spltMode;
 	
-	if (! stricmp(argv[1], "Note"))
+	if (! stricmp(argv[1], "Chn"))
+		spltMode = SPLT_BY_CHN;
+	else if (! stricmp(argv[1], "Note"))
 		spltMode = SPLT_BY_NOTE;
 	else if (! stricmp(argv[1], "Ins"))
 		spltMode = SPLT_BY_INS;
-	else if (false && ! stricmp(argv[1], "Vol"))
+	else if (! stricmp(argv[1], "Vol"))
 		spltMode = SPLT_BY_VOL;
 	else
 		spltMode = 0xFF;
@@ -287,7 +294,7 @@ static void TrkSplit_Instrument(TrackSplit& trkSplt)
 	trkInfFrom->notes.clear();
 	
 	trkInfTo = trkInfFrom;
-	for (evtIt = midTrk->GetEventBegin(); evtIt != midTrk->GetEventEnd();)
+	for (evtIt = midTrk->GetEventBegin(); evtIt != midTrk->GetEventEnd(); )
 	{
 		midevt_iterator curEvt = evtIt;
 		++evtIt;	// we may change the track of curEvt
@@ -328,7 +335,164 @@ static void TrkSplit_Instrument(TrackSplit& trkSplt)
 			break;
 		}	// end switch(curEvt->evtType & 0xF0)
 		
-		if (trkInfTo != trkInfFrom && ! skipMove)
+		if (! skipMove && trkInfTo != trkInfFrom)
+		{
+			// move Event to current Track
+			trkInfTo->midTrk->AppendEvent(*curEvt);
+			trkInfFrom->midTrk->RemoveEvent(curEvt);
+		}
+	}	// end for (evtIt)
+	
+	return;
+}
+
+// --- Functions for "Split by Channel" ---
+static void TrkSplit_Channel(TrackSplit& trkSplt)
+{
+	trkinf_iterator trkInfFrom;
+	trkinf_iterator trkInfTo;
+	MidiTrack* midTrk;
+	midevt_iterator evtIt;
+	UINT8 curChn;
+	std::vector<trkinf_iterator> chnTrkList;
+	size_t spltTrkCnt;
+	
+	trkInfFrom = trkSplt.trkList.begin();
+	midTrk = trkInfFrom->midTrk;
+	for (curChn = 0x00; curChn < 0x10; curChn ++)
+		chnTrkList.push_back(trkSplt.trkList.end());
+	
+	spltTrkCnt = 0;
+	for (evtIt = midTrk->GetEventBegin(); evtIt != midTrk->GetEventEnd(); )
+	{
+		midevt_iterator curEvt = evtIt;
+		++evtIt;	// we may change the track of curEvt
+		
+		if (curEvt->evtType < 0xF0)
+		{
+			curChn = curEvt->evtType & 0x0F;
+			trkInfTo = chnTrkList[curChn];
+			if (trkInfTo == trkSplt.trkList.end())
+			{
+				if (spltTrkCnt == 0)
+				{
+					// The first channel stays on the original track.
+					trkInfTo = trkInfFrom;
+				}
+				else
+				{
+					// make new track
+					trkSplt.trkList.push_back(TrackInfo());
+					trkInfTo = trkSplt.trkList.end();
+					--trkInfTo;
+					trkInfTo->midTrk = new MidiTrack;
+				}
+				chnTrkList[curChn] = trkInfTo;
+				spltTrkCnt ++;
+			}
+			if (trkInfTo != trkInfFrom)
+			{
+				// move Event to current Track
+				trkInfTo->midTrk->AppendEvent(*curEvt);
+				trkInfFrom->midTrk->RemoveEvent(curEvt);
+			}
+		}
+	}	// end for (evtIt)
+	
+	return;
+}
+
+// --- Functions for "Split by Volume" ---
+static void TrkSplit_Volume(TrackSplit& trkSplt)
+{
+	trkinf_iterator trkInfFrom;
+	trkinf_iterator trkInfTo;
+	MidiTrack* midTrk;
+	midevt_iterator evtIt;
+	UINT8 curVol;
+	std::vector<UINT8> volList;
+	std::vector<trkinf_iterator> volTrkList;
+	size_t spltTrkCnt;
+	bool skipMove;
+	
+	trkInfFrom = trkSplt.trkList.begin();
+	midTrk = trkInfFrom->midTrk;
+	for (curVol = 0x00; curVol < 0x80; curVol ++)
+	{
+		volList.push_back(0xFF);
+		volTrkList.push_back(trkSplt.trkList.end());
+	}
+	
+	trkInfTo = trkSplt.trkList.end();
+	spltTrkCnt = 0;
+	for (evtIt = midTrk->GetEventBegin(); evtIt != midTrk->GetEventEnd(); )
+	{
+		midevt_iterator curEvt = evtIt;
+		++evtIt;	// we may change the track of curEvt
+		
+		// TODO: Allow moving non-note channel events as well.
+		skipMove = true;	// false
+		switch(curEvt->evtType & 0xF0)
+		{
+		case 0x80:
+		case 0x90:
+			if ((curEvt->evtType & 0xF0) == 0x90 && curEvt->evtValB)
+			{
+				// Note On
+				curVol = curEvt->evtValB;
+				trkInfTo = volTrkList[curVol];
+				if (trkInfTo == trkSplt.trkList.end())
+				{
+					if (spltTrkCnt == 0)
+					{
+						// The first channel stays on the original track.
+						trkInfTo = trkInfFrom;
+					}
+					else
+					{
+						// make new track
+						trkSplt.trkList.push_back(TrackInfo());
+						trkInfTo = trkSplt.trkList.end();
+						--trkInfTo;
+						trkInfTo->midTrk = new MidiTrack;
+					}
+					volList[curVol] = (UINT8)(trkSplt.trkList.size() - 1);
+					volTrkList[curVol] = trkInfTo;
+					spltTrkCnt ++;
+				}
+				AddNoteToList(*trkInfTo, *curEvt);
+				skipMove = false;
+			}
+			else
+			{
+				// Note Off
+				trkinf_iterator noteOnTrk = RemoveNoteFromList(trkSplt.trkList, curEvt);
+				if (noteOnTrk != trkSplt.trkList.end())
+				{
+					if (noteOnTrk != trkInfFrom)
+					{
+						// move NoteOff event to track of NoteOn event
+						noteOnTrk->midTrk->AppendEvent(*curEvt);
+						trkInfFrom->midTrk->RemoveEvent(curEvt);
+					}
+					skipMove = true;
+				}
+			}
+			break;
+		case 0xB0:	// Control Change
+			switch(curEvt->evtValA)
+			{
+			case 0x07:	// Main Volume
+			case 0x0B:	// Expression
+				break;
+			}
+			break;
+		case 0xF0:	// Meta Events
+			skipMove = true;
+			break;
+		}
+		
+		if (! skipMove && trkInfTo != trkInfFrom)
 		{
 			// move Event to current Track
 			trkInfTo->midTrk->AppendEvent(*curEvt);
@@ -402,7 +566,7 @@ static void ModifyTrackNames(std::list<TrackInfo>& trkLst, UINT16 midiTrkID)
 		if (trkName.empty())
 			sprintf(&newTrkName[0], "tk%u #%.*u", midiTrkID, trkNums, trkID);
 		else
-			sprintf(&newTrkName[0], "%s #%.*u", trkName, trkNums, trkID);
+			sprintf(&newTrkName[0], "%s #%.*u", trkName.c_str(), trkNums, trkID);
 		newTrkNameLen = strlen(newTrkName.c_str());
 		
 		if (trkIt == trkLst.begin() && ! trkName.empty())
@@ -479,6 +643,12 @@ UINT8 SplitMidiTracks(UINT8 spltMode)
 			break;
 		case SPLT_BY_INS:
 			TrkSplit_Instrument(curTS);
+			break;
+		case SPLT_BY_CHN:
+			TrkSplit_Channel(curTS);
+			break;
+		case SPLT_BY_VOL:
+			TrkSplit_Volume(curTS);
 			break;
 		}
 	}

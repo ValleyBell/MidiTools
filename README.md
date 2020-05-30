@@ -8,6 +8,8 @@ Currently you can:
 
 - split by note: puts overlapping notes (e.g. chords) on separate tracks, so that each track is monophonic
 - split by instrument: puts each instrument on a separate track, useful when editing e.g. xm2mid conversions
+- split by channel: same as converting Format 0 to Format 1
+- split by volume: make a separate track for each note velocity
 
 I originally wrote this in 2012, but with an older version of my MIDI library.  
 
@@ -40,7 +42,7 @@ This is a MIDI library that allows you to read in MID files, modify them and wri
 It is relatively low-level, but that's what I prefer.
 
 One notable feature is, that it keeps track of the "running staus" of the original data.
-This means you can write the files back with without changing the whole structure.
+This means you can write the files back with minimal changes to the byte stream.
 
 
 # Complilation notes
@@ -50,5 +52,5 @@ Project files for VC++ 6 and VC2010 are included.
 If you want to compile them with GCC, you need to link with *MidiLib.cpp* and the Math library `m`.
 
 ```
-g++ MidiLib.cpp <tool.cpp> -lm -o <tool>
+g++ -I. MidiLib.cpp <tool.cpp> -lm -o <tool>
 ```
