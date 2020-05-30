@@ -28,6 +28,7 @@ struct TrackInfo
 	UINT32 noteTick[0x10];		// for event sorting
 	
 	// note cache for "split by instrument"
+	UINT8 chnIns[0x10];	// stores Note Height of currently playing note
 	std::list<NoteList> notes;
 };
 struct TrackSplit
@@ -40,22 +41,25 @@ typedef std::list<TrackInfo>::iterator trkinf_iterator;
 
 enum SPLIT_MODES
 {
-	SPLT_BY_NOTE = 0x00,
-	SPLT_BY_INS = 0x01,
-	SPLT_BY_VOL = 0x02,
+	SPLT_BY_CHN = 0x00,
+	SPLT_BY_NOTE = 0x01,
+	SPLT_BY_INS = 0x02,
+	SPLT_BY_VOL = 0x03,
 };
 
 // Function Prototypes
 // split by note
 static void MoveNoteOn(std::list<TrackInfo>& trkLst, midevt_iterator midEvt);
 static void MoveNoteOff(std::list<TrackInfo>& trkLst, midevt_iterator midEvt);
+static void TrkSplit_Note(TrackSplit& trkSplt);
 // split by instrument
 static trkinf_iterator GetInstrumentTrack(std::list<TrackInfo>& trkLst, const MidiEvent& midiEvt);
+static void TrkSplit_Instrument(TrackSplit& trkSplt);
 // General
 static UINT8 CountDigits(UINT32 value);
 static void ModifyTrackNames(std::list<TrackInfo>& trkLst, UINT16 midiTrkID);
 static void AddNoteToList(TrackInfo& trkInf, const MidiEvent& midEvt);
-static bool RemoveNoteFromList(std::list<TrackInfo>& trkLst, midevt_iterator midEvt, trkinf_iterator trkLstTo);
+static trkinf_iterator RemoveNoteFromList(std::list<TrackInfo>& trkLst, midevt_iterator midEvt);
 UINT8 SplitMidiTracks(UINT8 spltMode);
 
 
@@ -206,6 +210,38 @@ static void MoveNoteOff(std::list<TrackInfo>& trkLst, midevt_iterator midEvt)
 	return;
 }
 
+static void TrkSplit_Note(TrackSplit& trkSplt)
+{
+	trkinf_iterator trk1Inf;
+	MidiTrack* midTrk;
+	midevt_iterator evtIt;
+	UINT8 curChn;
+	
+	trk1Inf = trkSplt.trkList.begin();
+	midTrk = trk1Inf->midTrk;
+	for (curChn = 0x00; curChn < 0x10; curChn ++)
+		trk1Inf->notePlaying[curChn] = 0xFF;
+	
+	for (evtIt = midTrk->GetEventBegin(); evtIt != midTrk->GetEventEnd(); )
+	{
+		midevt_iterator curEvt = evtIt;
+		++evtIt;	// we may change the track of curEvt
+		
+		switch(curEvt->evtType & 0xF0)
+		{
+		case 0x80:
+		case 0x90:
+			if ((curEvt->evtType & 0xF0) == 0x90 && curEvt->evtValB)
+				MoveNoteOn(trkSplt.trkList, curEvt);
+			else
+				MoveNoteOff(trkSplt.trkList, curEvt);
+			break;
+		}	// end switch(curEvt->Event & 0xF0)
+	}	// end for (evtIt)
+	
+	return;
+}
+
 // --- Functions for "Split by Instrument" ---
 static trkinf_iterator GetInstrumentTrack(std::list<TrackInfo>& trkLst, const MidiEvent& midiEvt)
 {
@@ -213,26 +249,94 @@ static trkinf_iterator GetInstrumentTrack(std::list<TrackInfo>& trkLst, const Mi
 	UINT8 midChn;
 	
 	midChn = midiEvt.evtType & 0x0F;
-	if (trkLst.begin()->notePlaying[midChn] == 0xFF)
+	if (trkLst.begin()->chnIns[midChn] == 0xFF)
 		return trkLst.begin();
 	
 	for (curTrk = trkLst.begin(); curTrk != trkLst.end(); ++curTrk)
 	{
 		// find a Track that uses the current instrument
-		if (curTrk->notePlaying[midChn] == midiEvt.evtValA)
+		if (curTrk->chnIns[midChn] == midiEvt.evtValA)
 			return curTrk;
 	}
 	
-	// make new track and initialize notePlaying array
+	// make new track and initialize chnIns array
 	trkLst.push_back(TrackInfo());
 	curTrk = trkLst.end();
 	--curTrk;
 	
 	curTrk->midTrk = new MidiTrack;
 	for (midChn = 0x00; midChn < 0x10; midChn ++)
-		curTrk->notePlaying[midChn] = 0xFF;
+		curTrk->chnIns[midChn] = 0xFF;
 	
 	return curTrk;
+}
+
+static void TrkSplit_Instrument(TrackSplit& trkSplt)
+{
+	trkinf_iterator trkInfFrom;
+	trkinf_iterator trkInfTo;
+	MidiTrack* midTrk;
+	midevt_iterator evtIt;
+	UINT8 curChn;
+	bool skipMove;
+	
+	trkInfFrom = trkSplt.trkList.begin();
+	midTrk = trkInfFrom->midTrk;
+	for (curChn = 0x00; curChn < 0x10; curChn ++)
+		trkInfFrom->chnIns[curChn] = 0xFF;
+	trkInfFrom->notes.clear();
+	
+	trkInfTo = trkInfFrom;
+	for (evtIt = midTrk->GetEventBegin(); evtIt != midTrk->GetEventEnd();)
+	{
+		midevt_iterator curEvt = evtIt;
+		++evtIt;	// we may change the track of curEvt
+		
+		skipMove = (curEvt->evtType >= 0xF0);
+		switch(curEvt->evtType & 0xF0)
+		{
+		case 0x80:
+		case 0x90:
+			if ((curEvt->evtType & 0xF0) == 0x90 && curEvt->evtValB)
+			{
+				curChn = curEvt->evtType & 0x0F;
+				if (trkInfFrom->chnIns[curChn] == 0xFF)
+					trkInfFrom->chnIns[curChn] = 0x00;
+				
+				AddNoteToList(*trkInfTo, *curEvt);
+			}
+			else
+			{
+				trkinf_iterator noteOnTrk = RemoveNoteFromList(trkSplt.trkList, curEvt);
+				if (noteOnTrk != trkSplt.trkList.end())
+				{
+					if (noteOnTrk != trkInfFrom)
+					{
+						// move NoteOff event to track of NoteOn event
+						noteOnTrk->midTrk->AppendEvent(*curEvt);
+						trkInfFrom->midTrk->RemoveEvent(curEvt);
+					}
+					skipMove = true;
+				}
+			}
+			break;
+		case 0xC0:
+			trkInfTo = GetInstrumentTrack(trkSplt.trkList, *curEvt);
+			
+			curChn = curEvt->evtType & 0x0F;
+			trkInfTo->chnIns[curChn] = curEvt->evtValA;
+			break;
+		}	// end switch(curEvt->evtType & 0xF0)
+		
+		if (trkInfTo != trkInfFrom && ! skipMove)
+		{
+			// move Event to current Track
+			trkInfTo->midTrk->AppendEvent(*curEvt);
+			trkInfFrom->midTrk->RemoveEvent(curEvt);
+		}
+	}	// end for (evtIt)
+	
+	return;
 }
 
 // --- General Functions ---
@@ -327,47 +431,33 @@ static void AddNoteToList(TrackInfo& trkInf, const MidiEvent& midEvt)
 	return;
 }
 
-static bool RemoveNoteFromList(std::list<TrackInfo>& trkLst, midevt_iterator midEvt, trkinf_iterator trkLstTo)
+static trkinf_iterator RemoveNoteFromList(std::list<TrackInfo>& trkLst, midevt_iterator midEvt)
 {
 	trkinf_iterator trkIt;
-	std::list<NoteList>::iterator ntIt;
 	
 	for (trkIt = trkLst.begin(); trkIt != trkLst.end(); ++trkIt)
 	{
+		std::list<NoteList>::iterator ntIt;
 		for (ntIt = trkIt->notes.begin(); ntIt != trkIt->notes.end(); ++ntIt)
 		{
 			UINT8 evtChn = midEvt->evtType & 0x0F;
 			if (ntIt->note == midEvt->evtValA && ntIt->chn == evtChn)
-				break;
+			{
+				trkIt->notes.erase(ntIt);
+				return trkIt;	// return track of NoteOn event
+			}
 		}
-		if (ntIt != trkIt->notes.end())
-			break;
 	}
-	if (trkIt == trkLst.end())
-		return false;	// note not found
 	
-	trkIt->notes.erase(ntIt);
-	
-	if (trkIt == trkLstTo)
-		return false;
-	if (trkIt == trkLst.begin())
-		return true;
-	
-	// move Event to current Track
-	trkIt->midTrk->AppendEvent(*midEvt);
-	trkLst.begin()->midTrk->RemoveEvent(midEvt);
-	
-	return true;
+	return trkLst.end();	// note not found
 }
 
 UINT8 SplitMidiTracks(UINT8 spltMode)
 {
 	UINT16 trkCnt;
 	UINT16 curTrk;
-	UINT8 curChn;
 	std::vector<TrackSplit> trkSplt;
 	UINT16 newTrkID;
-	bool skipMove;
 	
 	trkCnt = CMidi.GetTrackCount();
 	trkSplt.resize(trkCnt);
@@ -376,76 +466,21 @@ UINT8 SplitMidiTracks(UINT8 spltMode)
 	{
 		MidiTrack* midiTrk = CMidi.GetTrack(curTrk);
 		TrackSplit& curTS = trkSplt[curTrk];
-		trkinf_iterator trkInfFrom;
-		trkinf_iterator trkInfTo;
-		
-		curTS.trkList.clear();
-		curTS.trkList.push_back(TrackInfo());
-		trkInfFrom = curTS.trkList.begin();
-		trkInfFrom->midTrk = midiTrk;
-		for (curChn = 0x00; curChn < 0x10; curChn ++)
-			trkInfFrom->notePlaying[curChn] = 0xFF;
-		trkInfFrom->notes.clear();
 		
 		std::cout << "Splitting Track " << curTrk << " ...\n";
+		curTS.trkList.clear();
+		curTS.trkList.push_back(TrackInfo());
+		curTS.trkList.begin()->midTrk = midiTrk;
 		
-		midevt_iterator evtIt;
-		trkInfTo = trkInfFrom;
-		for (evtIt = midiTrk->GetEventBegin(); evtIt != midiTrk->GetEventEnd();)
+		switch(spltMode)
 		{
-			midevt_iterator curEvt = evtIt;
-			++evtIt;	// MoveNote can change the track of curEvt
-			
-			if (spltMode == SPLT_BY_NOTE)
-			{
-				switch(curEvt->evtType & 0xF0)
-				{
-				case 0x80:
-				case 0x90:
-					if ((curEvt->evtType & 0xF0) == 0x90 && curEvt->evtValB)
-						MoveNoteOn(curTS.trkList, curEvt);
-					else
-						MoveNoteOff(curTS.trkList, curEvt);
-					break;
-				}	// end switch(curEvt->Event & 0xF0)
-			}
-			else if (spltMode == SPLT_BY_INS && curEvt->evtType < 0xF0)
-			{
-				skipMove = false;
-				switch(curEvt->evtType & 0xF0)
-				{
-				case 0x80:
-				case 0x90:
-					if ((curEvt->evtType & 0xF0) == 0x90 && curEvt->evtValB)
-					{
-						curChn = curEvt->evtType & 0x0F;
-						if (trkInfFrom->notePlaying[curChn] == 0xFF)
-							trkInfFrom->notePlaying[curChn] = 0x00;
-						
-						AddNoteToList(*trkInfTo, *curEvt);
-					}
-					else
-					{
-						// also moves the NoteOff-Event to the correct Track
-						skipMove = RemoveNoteFromList(curTS.trkList, curEvt, trkInfTo);
-					}
-					break;
-				case 0xC0:
-					trkInfTo = GetInstrumentTrack(curTS.trkList, *curEvt);
-					
-					curChn = curEvt->evtType & 0x0F;
-					trkInfTo->notePlaying[curChn] = curEvt->evtValA;
-					break;
-				}	// end switch(curEvt->evtType & 0xF0)
-				
-				if (trkInfTo != trkInfFrom && ! skipMove)
-				{
-					// move Event to current Track
-					trkInfTo->midTrk->AppendEvent(*curEvt);
-					trkInfFrom->midTrk->RemoveEvent(curEvt);
-				}
-			}	// end if (curEvt->evtType < 0xF0)
-		}	// end for (evtIt)
+		case SPLT_BY_NOTE:
+			TrkSplit_Note(curTS);
+			break;
+		case SPLT_BY_INS:
+			TrkSplit_Instrument(curTS);
+			break;
+		}
 	}
 	
 	newTrkID = 0;
