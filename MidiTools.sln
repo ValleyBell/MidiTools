@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MidiSplt", "MidiSplt.vcxproj", "{42959283-5CE3-44F7-9E71-4F9460F7C832}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MidiVolConv", "MidiVolConv.vcxproj", "{36691233-89E0-4944-AC8B-47442A338885}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -19,6 +21,14 @@ Global
 		{42959283-5CE3-44F7-9E71-4F9460F7C832}.Release|Win32.Build.0 = Release|Win32
 		{42959283-5CE3-44F7-9E71-4F9460F7C832}.Release|x64.ActiveCfg = Release|x64
 		{42959283-5CE3-44F7-9E71-4F9460F7C832}.Release|x64.Build.0 = Release|x64
+		{36691233-89E0-4944-AC8B-47442A338885}.Debug|Win32.ActiveCfg = Debug|Win32
+		{36691233-89E0-4944-AC8B-47442A338885}.Debug|Win32.Build.0 = Debug|Win32
+		{36691233-89E0-4944-AC8B-47442A338885}.Debug|x64.ActiveCfg = Debug|x64
+		{36691233-89E0-4944-AC8B-47442A338885}.Debug|x64.Build.0 = Debug|x64
+		{36691233-89E0-4944-AC8B-47442A338885}.Release|Win32.ActiveCfg = Release|Win32
+		{36691233-89E0-4944-AC8B-47442A338885}.Release|Win32.Build.0 = Release|Win32
+		{36691233-89E0-4944-AC8B-47442A338885}.Release|x64.ActiveCfg = Release|x64
+		{36691233-89E0-4944-AC8B-47442A338885}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

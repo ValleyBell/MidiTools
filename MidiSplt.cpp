@@ -78,43 +78,43 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 	
-	UINT8 RetVal;
-	UINT8 SpltMode;
+	UINT8 retVal;
+	UINT8 spltMode;
 	
 	if (! stricmp(argv[1], "Note"))
-		SpltMode = SPLT_BY_NOTE;
+		spltMode = SPLT_BY_NOTE;
 	else if (! stricmp(argv[1], "Ins"))
-		SpltMode = SPLT_BY_INS;
+		spltMode = SPLT_BY_INS;
 	else if (false && ! stricmp(argv[1], "Vol"))
-		SpltMode = SPLT_BY_VOL;
+		spltMode = SPLT_BY_VOL;
 	else
-		SpltMode = 0xFF;
+		spltMode = 0xFF;
 	
-	if (SpltMode == 0xFF)
+	if (spltMode == 0xFF)
 	{
 		std::cout << "Invalid method!\n";
 		return 0;
 	}
 	
 	std::cout << "Opening ...\n";
-	RetVal = CMidi.LoadFile(argv[2]);
-	if (RetVal)
+	retVal = CMidi.LoadFile(argv[2]);
+	if (retVal)
 	{
 		std::cout << "Error opening file!\n";
-		std::cout << "Errorcode: " << RetVal;
-		return RetVal;
+		std::cout << "Errorcode: " << retVal;
+		return retVal;
 	}
 	
 	std::cout << "Splitting ...\n";
-	SplitMidiTracks(SpltMode);
+	SplitMidiTracks(spltMode);
 	
 	std::cout << "Saving ...\n";
-	RetVal = CMidi.SaveFile(argv[3]);
-	if (RetVal)
+	retVal = CMidi.SaveFile(argv[3]);
+	if (retVal)
 	{
 		std::cout << "Error saving file!\n";
-		std::cout << "Errorcode: " << RetVal;
-		return RetVal;
+		std::cout << "Errorcode: " << retVal;
+		return retVal;
 	}
 	
 	std::cout << "Cleaning ...\n";
