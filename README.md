@@ -24,7 +24,7 @@ which is what I use this tool for most of the time these days.
 Converting volume scales is useful for e.g. fixing the velocities in MIDIs converted from PSX seq files.  
 Supported scales are:
 
-- `MIDI` - General MIDI scale (127 = 0 db, 90 = -6 db, 64 = -12 db, 45 = -18 db)
+- `GM` - General MIDI scale (127 = 0 db, 90 = -6 db, 64 = -12 db, 45 = -18 db)
 - `Lin` - linear scale (127 = 0 db, 64 = -6 db, 32 = -12 db, 16 = -18 db)
 - `FM` - Yamaha FM scale (-0.75 db steps: 127 = 0 db, 119 = -6 db, 111 = -12 db)
 - `PSG2` - SN76489 PSG scale (-3 db per 8 steps: 127..120 = 0 db, 119..112 = -2 db, 111..104 = -4 db)
@@ -32,7 +32,6 @@ Supported scales are:
 - `WinFM` - scale used by Windows OPL3 FM MIDI driver
 
 You can convert freely between the various scales.
-The only exception is that you can not convert *to* WinFM.
 
 
 # Libraries

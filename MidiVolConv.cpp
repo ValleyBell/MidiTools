@@ -39,7 +39,7 @@ struct VOLALGO_LIST
 	const char* name;
 };
 
-#define VOLALGO_MIDI	0x00
+#define VOLALGO_GM		0x00
 #define VOLALGO_LIN		0x01
 #define VOLALGO_FM		0x02
 #define VOLALGO_PSG_2DB	0x03
@@ -48,7 +48,7 @@ struct VOLALGO_LIST
 
 static const VOLALGO_LIST VolAlgoList[] =
 {
-	{VOLALGO_MIDI, "MIDI"},
+	{VOLALGO_GM, "GM"},
 	{VOLALGO_LIN, "Lin"},
 	{VOLALGO_FM, "FM"},
 	{VOLALGO_PSG_2DB, "PSG2"},
@@ -79,13 +79,13 @@ int main(int argc, char* argv[])
 	{
 		std::cout << "Usage: " << argv[0] << " [options] input.mid output.mid\n";
 		std::cout << "Options:\n";
-		std::cout << "    -s Algo - set volume algorithm (source/input) (default: -s MIDI)\n";
-		std::cout << "    -d Algo - set volume algorithm (destination/output) (default: -d MIDI)\n";
+		std::cout << "    -s Algo - set volume algorithm (source/input) (default: -s GM)\n";
+		std::cout << "    -d Algo - set volume algorithm (destination/output) (default: -d GM)\n";
 	//	std::cout << "    -e evts - convert specified events only (default: -e Vel,Vol,Exp)\n";
 	//	std::cout << "              Vel = Note Velocity, Vol = Volume Ctrl, Exp = Expression Ctrl\n";
 		std::cout << "    -g gain - change volume by gain (in db, default: 0)\n";
 		std::cout << "Algorithms:\n";
-		std::cout << "    MIDI  - General MIDI algorithm\n";
+		std::cout << "    GM    - General MIDI algorithm\n";
 		std::cout << "    Lin   - linear volume (127 = max, 64 = half volume)\n";
 		std::cout << "    FM    - Yamaha FM (0.75 db steps)\n";
 		std::cout << "    PSG2  - SN76489 PSG, 2 db per 8 steps\n";
@@ -100,8 +100,8 @@ int main(int argc, char* argv[])
 	argbase = 1;
 	VOLEVT_MASK = VOLEVT_ALL;
 	CHANNEL_MASK = 0xFFFF;	// all 16 channels active
-	INVOL_ALGO = VOLALGO_MIDI;
-	OUTVOL_ALGO = VOLALGO_MIDI;
+	INVOL_ALGO = VOLALGO_GM;
+	OUTVOL_ALGO = VOLALGO_GM;
 	VOL_GAIN = 0.0;
 	while(argbase < argc && argv[argbase][0] == '-')
 	{
@@ -240,11 +240,9 @@ void MidiVolConv(void)
 
 static double GetDBVol(UINT8 inVol)
 {
-	double temp;
-	
 	switch(INVOL_ALGO)
 	{
-	case VOLALGO_MIDI:	// MIDI scale
+	case VOLALGO_GM:	// General MIDI scale
 		return 40.0 * log(inVol / 127.0) / M_LN10;
 	case VOLALGO_LIN:	// linear scale
 		return 6.0 * log(inVol / 127.0) / M_LN2;
@@ -257,8 +255,13 @@ static double GetDBVol(UINT8 inVol)
 		inVol /= 0x08;	// truncate low 3 bits
 		return (inVol - 0x0F) * 3.0;
 	case VOLALGO_WINFM:
-		temp = sqrt(sin(inVol / 127.0 * (M_PI / 2))) * 0.9;
-		return 0x3F * (1.0 - temp) / 8.0 * 6.0;	// 8 steps = half volume, 0 = max. volume
+		{
+			double volPerc = inVol / 127.0;
+			double a2 = sin(volPerc * (M_PI / 2.0));
+			double a3 = sqrt(a2) * 0.9;
+			double oplTL = 0x3F * (1.0 - a3);
+			return oplTL / 8.0 * -6.0 + 4.725;	// add 4.725 to make up for the *0.9 above
+		}
 	}
 	
 	return 0.0;
@@ -271,25 +274,29 @@ static UINT8 GetMIDIVol(double dbVol, bool noVol0)
 	
 	switch(OUTVOL_ALGO)
 	{
-	case VOLALGO_MIDI:	// MIDI scale
+	case VOLALGO_GM:	// General MIDI scale
 		volVal = pow(10.0, dbVol / 40.0);
 		break;
 	case VOLALGO_LIN:	// linear scale
 		volVal = pow(2.0, dbVol / 6.0);
 		break;
 	case VOLALGO_FM:	// FM OPx scale (0.75 db per step)
-		volVal = dbVol / 6.0 * 8.0;
+		volVal = (dbVol / 6.0 * 8.0 + 127) / 127.0;
 		break;
 	case VOLALGO_PSG_2DB:	// PSG scale (8 values, one step, 2 db)
-		volVal = dbVol / 2.0 * 8.0;
+		volVal = (dbVol / 2.0 * 8.0 + 120) / 120.0;
 		break;
 	case VOLALGO_PSG_3DB:	// PSG scale (8 values, one step, 3 db)
-		volVal = dbVol / 3.0 * 8.0;
+		volVal = (dbVol / 3.0 * 8.0 + 120) / 120.0;
 		break;
-	//case VOLALGO_WINFM:
-	//	volPercent = inVol / 127.0;
-	//	fmVolVal = sqrt(sin(0.5 * M_PI * Volume)) * 0.9;
-	//	return 63 * (1.0 - fmVolVal);	// 8 steps = half volume, 0 = max. volume
+	case VOLALGO_WINFM:
+		{
+			double oplTL = (dbVol - 4.725) / -6.0 * 8.0;
+			double a3 = 1.0 - oplTL / 0x3F;
+			double a2 = pow(a3 / 0.9, 2);
+			volVal = asin(a2) / (M_PI / 2.0);
+			break;
+		}
 	default:
 		volVal = 1.0;
 		break;

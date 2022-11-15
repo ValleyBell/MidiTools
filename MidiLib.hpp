@@ -78,12 +78,6 @@ private:
 class MidiFile
 {
 private:
-	struct TrackList
-	{
-		MidiTrack* Data;
-		TrackList* next;
-	};
-	
 	UINT16 _format;
 	//UINT16 _trackCount;
 	UINT16 _resolution;
