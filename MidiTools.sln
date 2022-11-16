@@ -5,6 +5,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MidiSplt", "MidiSplt.vcxpro
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MidiVolConv", "MidiVolConv.vcxproj", "{36691233-89E0-4944-AC8B-47442A338885}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MidiEventSort", "MidiEventSort.vcxproj", "{82008E80-51DC-4A13-B2CA-BBA007C75B38}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -29,6 +31,14 @@ Global
 		{36691233-89E0-4944-AC8B-47442A338885}.Release|Win32.Build.0 = Release|Win32
 		{36691233-89E0-4944-AC8B-47442A338885}.Release|x64.ActiveCfg = Release|x64
 		{36691233-89E0-4944-AC8B-47442A338885}.Release|x64.Build.0 = Release|x64
+		{82008E80-51DC-4A13-B2CA-BBA007C75B38}.Debug|Win32.ActiveCfg = Debug|Win32
+		{82008E80-51DC-4A13-B2CA-BBA007C75B38}.Debug|Win32.Build.0 = Debug|Win32
+		{82008E80-51DC-4A13-B2CA-BBA007C75B38}.Debug|x64.ActiveCfg = Debug|x64
+		{82008E80-51DC-4A13-B2CA-BBA007C75B38}.Debug|x64.Build.0 = Debug|x64
+		{82008E80-51DC-4A13-B2CA-BBA007C75B38}.Release|Win32.ActiveCfg = Release|Win32
+		{82008E80-51DC-4A13-B2CA-BBA007C75B38}.Release|Win32.Build.0 = Release|Win32
+		{82008E80-51DC-4A13-B2CA-BBA007C75B38}.Release|x64.ActiveCfg = Release|x64
+		{82008E80-51DC-4A13-B2CA-BBA007C75B38}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

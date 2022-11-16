@@ -1,7 +1,35 @@
 # MIDI Tools
+
 various tools related to patching/modifying MIDI files
 
+## MIDI Event Sorter
+
+This tool allows you to sort MIDI events that occour at the same tick.  
+This can be useful when you have MIDIs where e.g. the Note On event occours before instrument is set, resulting in a wrong instrument.
+
+The tool sorts MIDI events in the following order:
+
+- Note Off events (from all channels)
+- parameter change events, grouped by channel 1..16
+    - Bank Select MSB, LSB
+    - Patch Change
+    - Control Changes
+    - Polyphonic Aftertouch
+    - Channel Aftertouch
+    - Pitch Bend
+- Note On events (from all channels)
+
+SysEx messages, Meta Events, Channel Mode Messages (CC 120..127) and RPNs/NRPNs will not be moved.
+
+By default, the original order of the Note events and Control Changes inside their "block" is kept.  
+Using the `-e` parameter, a bitmask can be set to enable sorting those in ascending order.
+
+Example for `-e 0x01`:
+
+- Control Changes in the order 7, 91, 11, 10 will be sorted to 7, 10, 11, 91.
+
 ## Midi Splitter
+
 This tool allows you to split MIDI tracks up based on certain criteria.
 
 Currently you can:
@@ -15,6 +43,7 @@ I originally wrote this in 2012, but with an older version of my MIDI library.
 
 
 ## MIDI Volume Converter
+
 With this tool you can convert MIDI volume values to different scales.
 This is what I wrote the tool for initially.
 
