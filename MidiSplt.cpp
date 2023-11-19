@@ -5,6 +5,7 @@
 #include <math.h>
 #include <vector>
 #include <list>
+#include <cstring>
 #include "MidiLib.hpp"
 
 #ifdef _MSC_VER
@@ -45,6 +46,7 @@ enum SPLIT_MODES
 	SPLT_BY_NOTE = 0x01,
 	SPLT_BY_INS = 0x02,
 	SPLT_BY_VOL = 0x03,
+	SPLT_BY_KEY = 0x04,
 };
 
 // Function Prototypes
@@ -59,6 +61,8 @@ static void TrkSplit_Instrument(TrackSplit& trkSplt);
 static void TrkSplit_Channel(TrackSplit& trkSplt);
 // split by volume
 static void TrkSplit_Volume(TrackSplit& trkSplt);
+// split by key
+static void TrkSplit_Key(TrackSplit& trkSplt);
 // General
 static UINT8 CountDigits(UINT32 value);
 static void ModifyTrackNames(std::list<TrackInfo>& trkLst, UINT16 midiTrkID);
@@ -81,6 +85,7 @@ int main(int argc, char* argv[])
 		printf("    note - split chords\n");
 		printf("    ins  - split by instrument/patch\n");
 		printf("    vol  - split by volume\n");
+		printf("    key  - split by key\n");
 #ifdef _DEBUG
 		getchar();
 #endif
@@ -98,6 +103,8 @@ int main(int argc, char* argv[])
 		spltMode = SPLT_BY_INS;
 	else if (! stricmp(argv[1], "Vol"))
 		spltMode = SPLT_BY_VOL;
+	else if (! stricmp(argv[1], "Key"))
+		spltMode = SPLT_BY_KEY;
 	else
 		spltMode = 0xFF;
 	
@@ -503,6 +510,108 @@ static void TrkSplit_Volume(TrackSplit& trkSplt)
 	return;
 }
 
+// --- Functions for "Split by Key" ---
+static void TrkSplit_Key(TrackSplit& trkSplt)
+{
+	trkinf_iterator trkInfFrom;
+	trkinf_iterator trkInfTo;
+	MidiTrack* midTrk;
+	midevt_iterator evtIt;
+	UINT8 curKey;
+	std::vector<UINT8> keyList;
+	std::vector<trkinf_iterator> keyTrkList;
+	size_t spltTrkCnt;
+	bool skipMove;
+	
+	trkInfFrom = trkSplt.trkList.begin();
+	midTrk = trkInfFrom->midTrk;
+	for (curKey = 0x00; curKey < 0x80; curKey ++)
+	{
+		keyList.push_back(0xFF);
+		keyTrkList.push_back(trkSplt.trkList.end());
+	}
+	
+	trkInfTo = trkSplt.trkList.end();
+	spltTrkCnt = 0;
+	for (evtIt = midTrk->GetEventBegin(); evtIt != midTrk->GetEventEnd(); )
+	{
+		midevt_iterator curEvt = evtIt;
+		++evtIt;	// we may change the track of curEvt
+		
+		// TODO: Allow moving non-note channel events as well.
+		skipMove = true;	// false
+		switch(curEvt->evtType & 0xF0)
+		{
+		case 0x80:
+		case 0x90:
+			if ((curEvt->evtType & 0xF0) == 0x90 && curEvt->evtValA)
+			{
+				// Note On
+				curKey = curEvt->evtValA;
+				trkInfTo = keyTrkList[curKey];
+				if (trkInfTo == trkSplt.trkList.end())
+				{
+					if (spltTrkCnt == 0)
+					{
+						// The first channel stays on the original track.
+						trkInfTo = trkInfFrom;
+					}
+					else
+					{
+						// make new track
+						trkSplt.trkList.push_back(TrackInfo());
+						trkInfTo = trkSplt.trkList.end();
+						--trkInfTo;
+						trkInfTo->midTrk = new MidiTrack;
+					}
+					keyList[curKey] = (UINT8)(trkSplt.trkList.size() - 1);
+					keyTrkList[curKey] = trkInfTo;
+					spltTrkCnt ++;
+				}
+				AddNoteToList(*trkInfTo, *curEvt);
+				skipMove = false;
+			}
+			else
+			{
+				// Note Off
+				trkinf_iterator noteOnTrk = RemoveNoteFromList(trkSplt.trkList, curEvt);
+				if (noteOnTrk != trkSplt.trkList.end())
+				{
+					if (noteOnTrk != trkInfFrom)
+					{
+						// move NoteOff event to track of NoteOn event
+						noteOnTrk->midTrk->AppendEvent(*curEvt);
+						trkInfFrom->midTrk->RemoveEvent(curEvt);
+					}
+					skipMove = true;
+				}
+			}
+			break;
+		case 0xB0:	// Control Change
+			switch(curEvt->evtValA)
+			{
+			case 0x07:	// Main Volume
+			case 0x0B:	// Expression
+				break;
+			}
+			break;
+		case 0xF0:	// Meta Events
+			skipMove = true;
+			break;
+		}
+		
+		if (! skipMove && trkInfTo != trkInfFrom)
+		{
+			// move Event to current Track
+			trkInfTo->midTrk->AppendEvent(*curEvt);
+			trkInfFrom->midTrk->RemoveEvent(curEvt);
+		}
+	}	// end for (evtIt)
+	
+	return;
+}
+
+
 // --- General Functions ---
 static UINT8 CountDigits(UINT32 value)
 {
@@ -649,6 +758,9 @@ UINT8 SplitMidiTracks(UINT8 spltMode)
 			break;
 		case SPLT_BY_VOL:
 			TrkSplit_Volume(curTS);
+			break;
+		case SPLT_BY_KEY:
+			TrkSplit_Key(curTS);
 			break;
 		}
 	}
