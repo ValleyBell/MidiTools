@@ -43,7 +43,7 @@ typedef std::list<TrackInfo>::iterator trkinf_iterator;
 enum SPLIT_MODES
 {
 	SPLT_BY_CHN = 0x00,
-	SPLT_BY_NOTE = 0x01,
+	SPLT_CHORD = 0x01,
 	SPLT_BY_INS = 0x02,
 	SPLT_BY_VOL = 0x03,
 	SPLT_BY_KEY = 0x04,
@@ -53,7 +53,7 @@ enum SPLIT_MODES
 // split by note
 static void MoveNoteOn(std::list<TrackInfo>& trkLst, midevt_iterator midEvt);
 static void MoveNoteOff(std::list<TrackInfo>& trkLst, midevt_iterator midEvt);
-static void TrkSplit_Note(TrackSplit& trkSplt);
+static void TrkSplit_Chord(TrackSplit& trkSplt);
 // split by instrument
 static trkinf_iterator GetInstrumentTrack(std::list<TrackInfo>& trkLst, const MidiEvent& midiEvt);
 static void TrkSplit_Instrument(TrackSplit& trkSplt);
@@ -81,11 +81,11 @@ int main(int argc, char* argv[])
 	{
 		printf("Usage: %s method input.mid output.mid\n", argv[0]);
 		printf("Methods:\n");
-		printf("    chn  - split by channel\n");
-		printf("    note - split chords\n");
-		printf("    ins  - split by instrument/patch\n");
-		printf("    vol  - split by volume\n");
-		printf("    key  - split by key\n");
+		printf("    chn   - split by channel\n");
+		printf("    chord - split chords\n");
+		printf("    ins   - split by instrument/patch\n");
+		printf("    vol   - split by volume\n");
+		printf("    key   - split by note key\n");
 #ifdef _DEBUG
 		getchar();
 #endif
@@ -97,8 +97,8 @@ int main(int argc, char* argv[])
 	
 	if (! stricmp(argv[1], "Chn"))
 		spltMode = SPLT_BY_CHN;
-	else if (! stricmp(argv[1], "Note"))
-		spltMode = SPLT_BY_NOTE;
+	else if (! stricmp(argv[1], "chord"))
+		spltMode = SPLT_CHORD;
 	else if (! stricmp(argv[1], "Ins"))
 		spltMode = SPLT_BY_INS;
 	else if (! stricmp(argv[1], "Vol"))
@@ -145,7 +145,7 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
-// --- Functions for "Split by Note" ---
+// --- Functions for "Split Chords" ---
 static void MoveNoteOn(std::list<TrackInfo>& trkLst, midevt_iterator midEvt)
 {
 	trkinf_iterator trkIt;
@@ -224,7 +224,7 @@ static void MoveNoteOff(std::list<TrackInfo>& trkLst, midevt_iterator midEvt)
 	return;
 }
 
-static void TrkSplit_Note(TrackSplit& trkSplt)
+static void TrkSplit_Chord(TrackSplit& trkSplt)
 {
 	trkinf_iterator trk1Inf;
 	MidiTrack* midTrk;
@@ -747,8 +747,8 @@ UINT8 SplitMidiTracks(UINT8 spltMode)
 		
 		switch(spltMode)
 		{
-		case SPLT_BY_NOTE:
-			TrkSplit_Note(curTS);
+		case SPLT_CHORD:
+			TrkSplit_Chord(curTS);
 			break;
 		case SPLT_BY_INS:
 			TrkSplit_Instrument(curTS);
