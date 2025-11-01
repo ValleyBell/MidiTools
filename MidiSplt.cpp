@@ -95,8 +95,8 @@ int main(int argc, char* argv[])
 		printf("    chn   - split by channel\n");
 		printf("    chord - split chords\n");
 		printf("    ins   - split by instrument/patch\n");
-		printf("    vel   - split by note velocity\n");
 		printf("    key   - split by note key\n");
+		printf("    vel   - split by note velocity\n");
 #ifdef _DEBUG
 		getchar();
 #endif
@@ -136,6 +136,8 @@ int main(int argc, char* argv[])
 	
 	std::cout << "Splitting ...\n";
 	SplitMidiTracks(spltMode);
+	if (CMidi.GetTrackCount() > 1 && CMidi.GetMidiFormat() == 0)
+		CMidi.SetMidiFormat(1);
 	
 	std::cout << "Saving ...\n";
 	retVal = CMidi.SaveFile(argv[3]);

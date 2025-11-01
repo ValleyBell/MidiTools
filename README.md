@@ -34,10 +34,11 @@ This tool allows you to split MIDI tracks up based on certain criteria.
 
 Currently you can:
 
-- split by note: puts overlapping notes (e.g. chords) on separate tracks, so that each track is monophonic
+- split chords: puts overlapping notes (e.g. chords) that occour on one channel on separate tracks, so that each track is monophonic per channel
 - split by instrument: puts each instrument on a separate track, useful when editing e.g. xm2mid conversions
 - split by channel: same as converting Format 0 to Format 1
 - split by volume: make a separate track for each note velocity
+- split by key: make a separate track for note pitch
 
 I originally wrote this in 2012, but with an older version of my MIDI library.  
 
