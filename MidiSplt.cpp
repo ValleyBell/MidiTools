@@ -316,13 +316,13 @@ static void TrkSplit_Instrument(TrackSplit& trkSplt)
 			if (evtIt->evtValB > 0 && chnIns[curChn] == 0xFF)
 			{
 				chnIns[curChn] = 0x00;
-				insSet.emplace(chnIns[curChn]);
+				insSet.insert(chnIns[curChn]);
 			}
 			break;
 		case 0xC0:
 			curChn = evtIt->evtType & 0x0F;
 			chnIns[curChn] = evtIt->evtValA;
-			insSet.emplace(chnIns[curChn]);
+			insSet.insert(chnIns[curChn]);
 			break;
 		}	// end switch(evtIt->evtType & 0xF0)
 	}	// end for (evtIt)
@@ -415,7 +415,7 @@ static void TrkSplit_Channel(TrackSplit& trkSplt)
 		if (evtIt->evtType < 0xF0)
 		{
 			curChn = evtIt->evtType & 0x0F;
-			chnSet.emplace(curChn);
+			chnSet.insert(curChn);
 		}
 		else
 		{
@@ -424,7 +424,7 @@ static void TrkSplit_Channel(TrackSplit& trkSplt)
 				if (evtIt->evtData.size() >= 1)
 				{
 					curChn = evtIt->evtData[0x00] & 0x0F;
-					chnSet.emplace(curChn);
+					chnSet.insert(curChn);
 				}
 			}
 		}
@@ -497,7 +497,7 @@ static void TrkSplit_Velocity(TrackSplit& trkSplt)
 		{
 		case 0x90:
 			if (evtIt->evtValB > 0)
-				volSet.emplace(evtIt->evtValB * -1);	// *-1 for sorting from high to low volume
+				volSet.insert(evtIt->evtValB * -1);	// *-1 for sorting from high to low volume
 			break;
 		}	// end switch(evtIt->evtType & 0xF0)
 	}	// end for (evtIt)
@@ -594,7 +594,7 @@ static void TrkSplit_Key(TrackSplit& trkSplt)
 		{
 		case 0x90:
 			if (evtIt->evtValB > 0)	// only conider Note On events
-				keySet.emplace(evtIt->evtValA);
+				keySet.insert(evtIt->evtValA);
 			break;
 		}	// end switch(evtIt->evtType & 0xF0)
 	}	// end for (evtIt)
